@@ -1,0 +1,224 @@
+﻿@model CVS.Novologix.TransactionSearch.Models.SearchModel
+
+<br/>
+
+<fieldset class="form">
+    <legend></legend>
+    <table width="900">
+        <tr>
+            <th></th>
+        </tr>
+        <tr>
+            <td>
+                <label for="autocomplete">Find auth: </label>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <input id="autocomplete" type="hidden" style="width:500px" />
+            </td>
+        </tr>
+        
+            <tr>
+                <td>
+                    <input id="findauth" name ="term" type="text" style="width:500px" />
+                </td>
+            </tr>
+    </table>
+</fieldset>
+
+<fieldset class="form">
+    <legend></legend>
+    <table width="900">
+        <tr>
+            <td>
+                <label for="autocomplete">Find auth by Date: </label>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <select class="selectpicker">
+                    <option value="3">last 3 days</option>
+                    <option value="7">7 days</option>
+                    <option value="30">30 days</option>
+                    <option value="90">90 days</option>
+                </select>
+                @*<div class="dropdown" id="authdatee">
+                    <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" id="authdate">
+                        Choose Date
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" id="authdated">
+                        <li><a href="#">last 3 days</a></li>
+                        <li><a href="#">7 days</a></li>
+                        <li><a href="#">30 days</a></li>
+                    </ul>
+                </div>*@
+            </td>
+        </tr>
+    </table>
+</fieldset>
+
+<div id="FindAuthResult" />
+<input name="authsearchtext" id="authsearchtext" type="hidden" value="" />
+<input name="authsearchurl" id="authsearchurl" type="hidden" value="" />
+
+@section scripts
+{
+    <link href="/FindAuth/Content/themes/flat/jquery-ui-1.10.3.min.css" rel="stylesheet" />
+    <link href="/FindAuth/Scripts/jtable/themes/lightcolor/blue/jtable.min.css" rel="stylesheet" />
+  @*  <link href="~/Scripts/jtable/themes/metro/blue/jtable.min.css" rel="stylesheet" />*@
+    <script type="text/javascript">
+
+
+        function RefreshPage() {
+            $('#FindAuthResult').jtable('load', { authsearchtext: $('#authsearchtext').val() });
+        }
+
+        $('#FindAuthResult').jtable({
+            title: 'AUTHORIZATION SEARCH RESULTS',
+            paging: true,
+            pageSize: 10,
+            sorting: true,
+            multiSorting: true,
+            defaultSorting: 'ProcessDate desc',
+            actions: {
+                listAction: function (postData, jtParams) {
+                    return $.Deferred(function ($dfd) {
+                        $.ajax({
+                            url: $('#authsearchurl').val() + $('#authsearchtext').val() + '&jtStartIndex=' + jtParams.jtStartIndex + '&jtPageSize=' + jtParams.jtPageSize + '&jtSorting=' + jtParams.jtSorting,
+                            type: 'POST',
+                            dataType: 'json',
+                            data: postData,
+                            success: function (data) {
+                                $dfd.resolve(data);
+                            },
+                            error: function () {
+                                $dfd.reject();
+                            }
+                        });
+                    });
+                }
+            },
+            recordAdded: function(event, data) {
+                RefreshPage();
+            },
+            recordDeleted: function(event, data) {
+                //RefreshPage();
+            },
+            fields: {
+                AuthRef: {
+                    title: 'Auth#',
+                    key: true,
+                    create: false,
+                    edit: false,
+                    list: true,
+                    display: function (data) {
+                        return $('<a href=https://qa-app.novologix.net/Auth/AuthDetail.aspx?AuthTransactionIdentifier=' + data.record.AuthRef + '>' + data.record.AuthRef + '</a>');
+                    }
+                },
+                PlanDescription: {
+                    title: 'Plan',
+                    width: '10%'
+                },
+                BillingProviderID: {
+                    title: 'ProviderID',
+                    width: '10%'
+                },
+                BillingProviderNPI: {
+                    title: 'Provider NPI',
+                    create: true,
+                    edit: true,
+                    width: '15%'
+                },
+                BillingProviderName: {
+                    title: 'Provider Name',
+                    create: false,
+                    edit: false,
+                    width: '10%'
+                },
+                RequestedDrugName: {
+                    title: 'Drug Name',
+                    create: true,
+                    edit: true,
+                    width: '10%'
+                },
+                DerivedStatus: {
+                    title: 'Status',
+                    create: true,
+                    edit: true,
+                    width: '10%'
+                },
+                ProcessDate: {
+                    title: 'ProcessDate',
+                    edit: false,
+                    create: false,
+                    width: '15%',
+                    display: function (data) { return moment(data.record.ProcessDate).format('MM/DD/YYYY HH:mm:ss'); }
+                }, 
+                LastUpdateDate: {
+                    title: 'LastActivityDate',
+                    edit: false,
+                    create: false,
+                    width: '25%',
+                    display: function (data) { return moment(data.record.ProcessDate).format('MM/DD/YYYY'); }
+                }
+
+
+            }
+        });
+
+        $(document).ready(function() {
+            var updateResults = [];
+            $("input#autocomplete").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: "/Search/search",
+                        dataType: "json",
+                        data: {
+                            term: request.term,
+                        },
+                        success: function(data) {
+                            var itemArray = new Array();
+                            for (i = 0; i < data.length; i++) {
+                                var labelData = data[i].Name + ", " + data[i].StateProvinceCode + ", " + data[i].CountryRegionCode;
+                                itemArray[i] = { label: labelData, value: labelData, data: data[i] }
+                            }
+
+                            console.log(itemArray);
+                            response(itemArray);
+                        },
+                        error: function(data, type) {
+                            console.log(type);
+                        }
+                    });
+                },
+                select: function(event, ui) {
+                    $("#authsearchtext").val(ui.item.data.StateProvinceID);
+                    $('#FindAuthResult').jtable('load', {authsearchtext : ui.item.data.StateProvinceID});
+                    console.log(ui.item);
+                }
+            });
+            $("input#findauth").keyup(function (e) {
+                if (e.keyCode == 13) {
+                    $("#authsearchtext").val($("input#findauth").val());
+                    $("#authsearchurl").val('/FindAuth/Search/GetAuth?authsearchtext=');
+                    $('#FindAuthResult').jtable('load', { authsearchtext: $("input#authsearchtext").val() });
+                    //console.log(ui.item);
+                }
+            });
+           
+            $(function () {
+
+                $('.selectpicker').on('change', function () {
+                    var selected = $(this).find("option:selected").val();
+                    $("#authsearchtext").val(selected);
+                    $("#authsearchurl").val('/FindAuth/Search/GetAuthByDate?authsearchtext=');
+                    $('#FindAuthResult').jtable('load', { authsearchtext: $("input#authsearchtext").val() });
+                });
+
+            });
+            
+        });
+    </script>
+}
